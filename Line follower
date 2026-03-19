@@ -1,42 +1,128 @@
-Line Follower Robot 🤖
+/*
+ *  PID Line Follower Robot
+ *  Controller: Arduino Nano
+ *  Motor Driver: TB6612FNG
+ *  Sensors: 5-Channel IR Array (Analog)
+ */
 
-📌 Description
+const int sensorPins[5] = {A0, A1, A2, A3, A4};  // IR array (leftmost to rightmost)
+long sensorValues[5];
+const int weights[5] = {-2000, -1000, 0, 1000, 2000}; // weighted positions
 
-This project is an autonomous robot that follows a predefined path (usually a black line on a white surface) using IR sensors. The robot continuously detects the path and adjusts its movement accordingly.
+// === TB6612FNG Motor Driver Pins ===
+// Right Motor (Motor A)
+const int PWMA = 9;   // PWM speed control
+const int AIN1 = 6;   // Direction pin 1
+const int AIN2 = 3;   // Direction pin 2
 
-🎯 Objective
+// Left Motor (Motor B)
+const int PWMB = 10;  // PWM speed control
+const int BIN1 = 11;  // Direction pin 1
+const int BIN2 = 5;   // Direction pin 2
 
-To design and implement a robot capable of path tracking using sensor-based feedback and control logic.
+const int STBY = 4;   // Standby pin (enable driver)
 
-🔧 Components Used
+// === Speed & PID Variables ===
+int rspeed, lspeed;
+int base_speed = 160; // Increase for faster robot
 
-- Arduino Uno
-- IR Sensors (2 or more)
-- L298N Motor Driver
-- DC Motors with wheels
-- Chassis
-- Battery pack
+float Kp = 6.0;       // Proportional gain
+float Ki = 0.0;       // Integral gain (usually 0 for LFR)
+float Kd = 55.0;      // Derivative gain
 
-⚙️ Working Principle
+float error = 0, lastError = 0;
+float p, iTerm, d, correction;
 
-The IR sensors detect the contrast between the black line and the white surface. Based on sensor inputs:
+void setup() {
+  // Set sensor pins
+  for (int i = 0; i < 5; i++) pinMode(sensorPins[i], INPUT);
 
-- If the robot is on track → moves forward
-- If it deviates → adjusts left or right
-  The Arduino processes these inputs and controls motor direction using the motor driver.
+  // Motor driver pins
+  pinMode(PWMA, OUTPUT);
+  pinMode(AIN1, OUTPUT);
+  pinMode(AIN2, OUTPUT);
+  pinMode(PWMB, OUTPUT);
+  pinMode(BIN1, OUTPUT);
+  pinMode(BIN2, OUTPUT);
+  pinMode(STBY, OUTPUT);
 
-🚀 Features
+  digitalWrite(STBY, HIGH); // enable motor driver
 
-- Autonomous navigation
-- Real-time path correction
-- Simple and efficient design
+  Serial.begin(9600);
+}
 
-📷 Demo
+void loop() {
+  pid_calc();
+  calc_turn();
+}
 
-(Add your project images/videos here)
+// --- PID CALCULATION ---
+void pid_calc() {
+  long sensorSum = 0;
+  long weightedSum = 0;
 
-💡 Future Improvements
+  for (int i = 0; i < 5; i++) {
+    sensorValues[i] = analogRead(sensorPins[i]);
+    sensorSum += sensorValues[i];
+    weightedSum += (long)sensorValues[i] * weights[i];
+  }
 
-- PID control for smoother movement
-- Obstacle detection
-- Speed optimization
+  if (sensorSum == 0) {
+    // Line lost -> stop motors
+    motor_drive(0, 0);
+    return;
+  }
+
+  long position = weightedSum / sensorSum;  // relative position
+  error = position;  // setpoint = 0
+
+  p = error;
+  iTerm += p;
+  d = p - lastError;
+
+  correction = (Kp * p) + (Ki * iTerm) + (Kd * d);
+  lastError = p;
+
+  // Safety Limits
+  if (correction > 255) correction = 255;
+  if (correction < -255) correction = -255;
+}
+
+// --- CALCULATE SPEED & BALANCE TURNS ---
+void calc_turn() {
+  rspeed = base_speed + correction;  // <-- FIXED RIGHT TURN DIRECTION
+  lspeed = base_speed - correction;  // <-- FIXED LEFT TURN DIRECTION
+
+  // Clamp motor speeds
+  if (rspeed > 255) rspeed = 255;
+  if (lspeed > 255) lspeed = 255;
+  if (rspeed < -255) rspeed = -255;
+  if (lspeed < -255) lspeed = -255;
+
+  motor_drive(rspeed, lspeed);
+}
+
+// --- MOTOR DRIVER FUNCTION (TB6612FNG) ---
+void motor_drive(int right, int left) {
+  // Right Motor (A)
+  if (right >= 0) {
+    digitalWrite(AIN1, HIGH);
+    digitalWrite(AIN2, LOW);
+    analogWrite(PWMA, right);
+  } else {
+    digitalWrite(AIN1, LOW);
+    digitalWrite(AIN2, HIGH);
+    analogWrite(PWMA, abs(right));
+  }
+
+  // Left Motor (B)
+  if (left >= 0) {
+    digitalWrite(BIN1, HIGH);
+    digitalWrite(BIN2, LOW);
+    analogWrite(PWMB, left);
+  } else {
+    digitalWrite(BIN1, HIGH);
+    digitalWrite(BIN2, LOW);
+    analogWrite(PWMB, abs(left));
+  }
+}
