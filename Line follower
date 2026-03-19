@@ -1,0 +1,42 @@
+Line Follower Robot 🤖
+
+📌 Description
+
+This project is an autonomous robot that follows a predefined path (usually a black line on a white surface) using IR sensors. The robot continuously detects the path and adjusts its movement accordingly.
+
+🎯 Objective
+
+To design and implement a robot capable of path tracking using sensor-based feedback and control logic.
+
+🔧 Components Used
+
+- Arduino Uno
+- IR Sensors (2 or more)
+- L298N Motor Driver
+- DC Motors with wheels
+- Chassis
+- Battery pack
+
+⚙️ Working Principle
+
+The IR sensors detect the contrast between the black line and the white surface. Based on sensor inputs:
+
+- If the robot is on track → moves forward
+- If it deviates → adjusts left or right
+  The Arduino processes these inputs and controls motor direction using the motor driver.
+
+🚀 Features
+
+- Autonomous navigation
+- Real-time path correction
+- Simple and efficient design
+
+📷 Demo
+
+(Add your project images/videos here)
+
+💡 Future Improvements
+
+- PID control for smoother movement
+- Obstacle detection
+- Speed optimization
